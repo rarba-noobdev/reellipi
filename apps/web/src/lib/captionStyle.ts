@@ -45,6 +45,8 @@ export interface CaptionStyle {
   textColor: string;
   accentColor: string;
   keywordColor: string;
+  /** 'fill' recolours the glyph; 'outline' recolours the border and clashes more. */
+  keywordStyle: 'none' | 'fill' | 'outline';
 
   outlineColor: string;
   outlineWidthPct: number;

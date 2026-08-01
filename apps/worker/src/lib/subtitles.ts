@@ -1,4 +1,5 @@
 import type { TimedWord } from './align.js';
+import { segmentWords } from './segment.js';
 
 export interface Cue {
   idx: number;
@@ -33,6 +34,8 @@ export interface CueOptions {
   interCueGap?: number;
   /** Media duration. Cues are never extended past it. */
   mediaDuration?: number;
+  /** Hard cap on words shown at once. Drives the segmentation search width. */
+  maxWordsPerCue?: number;
 }
 
 const CUE_DEFAULTS: Required<CueOptions> = {
@@ -46,9 +49,18 @@ const CUE_DEFAULTS: Required<CueOptions> = {
   breakOnGap: 0.6,
   interCueGap: 0.084,
   mediaDuration: Infinity,
+  maxWordsPerCue: 5,
 };
 
 const SENTENCE_END = /[.!?|।॥]["')\]]?$/;
+/** Commas and dashes: weaker breaks, used only when a cue is already near capacity. */
+const CLAUSE_END = /[,;:—–]["')\]]?$/;
+
+/** Does this cue finish a sentence? Used to protect the boundary during merging. */
+function endsSentence(cue: Cue): boolean {
+  const last = cue.words[cue.words.length - 1];
+  return last ? SENTENCE_END.test(last.w) : false;
+}
 
 /**
  * Group timed words into readable cues.
@@ -61,41 +73,27 @@ export function buildCues(words: TimedWord[], options: CueOptions = {}): Cue[] {
   const o = { ...CUE_DEFAULTS, ...options };
   if (words.length === 0) return [];
 
-  const groups: TimedWord[][] = [];
-  let current: TimedWord[] = [];
+  /*
+   * Segmentation is a global optimisation, not a left-to-right scan. Greedy flushing
+   * cannot see that breaking one word earlier would avoid stranding a two-word tail or
+   * splitting a bound phrase, which is what made cues run across sentence ends.
+   */
+  const segments = segmentWords(words, {
+    maxWordsPerCue: o.maxWordsPerCue,
+    maxLines: o.maxLines,
+    maxCharsPerLine: o.maxCharsPerLine,
+    maxCps: o.maxCps,
+    minDuration: o.minDuration,
+    maxDuration: o.maxDuration,
+    breakOnGap: o.breakOnGap,
+  });
 
-  const flush = () => {
-    if (current.length) groups.push(current);
-    current = [];
-  };
-
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i]!;
-    const prev = current[current.length - 1];
-    const candidate = [...current, word];
-    const span = word.end - (current[0]?.start ?? word.start);
-    const chars = candidate.reduce((a, w) => a + w.w.length, 0) + candidate.length - 1;
-
-    const gapBroken = prev !== undefined && word.start - prev.end >= o.breakOnGap;
-    const tooLong = span > o.maxDuration;
-    const tooWide = chars > o.maxCharsPerLine * o.maxLines;
-    const overBudget = chars > Math.max(o.maxCps * span, o.maxCharsPerLine);
-
-    if (current.length > 0 && (gapBroken || tooLong || tooWide || overBudget)) flush();
-
-    current.push(word);
-
-    // Prefer breaking where the speaker did.
-    if (SENTENCE_END.test(word.w) && current.length >= 2) flush();
-  }
-  flush();
-
-  const cues: Cue[] = groups.map((g, idx) => ({
+  const cues: Cue[] = segments.map((g, idx) => ({
     idx,
-    start: g[0]!.start,
-    end: g[g.length - 1]!.end,
-    lines: wrapLines(g.map((w) => w.w), o.maxCharsPerLine, o.maxLines),
-    words: g,
+    start: g.start,
+    end: g.end,
+    lines: wrapLines(g.words.map((w) => w.w), o.maxCharsPerLine, o.maxLines),
+    words: g.words,
   }));
 
   return enforceDurations(mergeShortCues(cues, o), o);
@@ -113,10 +111,19 @@ function mergeShortCues(cues: Cue[], o: Required<CueOptions>): Cue[] {
   const budget = o.maxCharsPerLine * o.maxLines;
   const out: Cue[] = [];
 
+  /**
+   * `a` and `b` may only combine if they belong to the same sentence and the result
+   * still fits. Merging across a full stop is what produced cues like
+   * "solren. And video" — two sentences sharing one card, which reads as if the caption
+   * has lost the rhythm of the speech.
+   */
   const fits = (a: Cue, b: Cue) => {
+    if (endsSentence(a)) return false;
     const words = [...a.words, ...b.words];
     const width = words.reduce((acc, w) => acc + w.w.length, 0) + words.length - 1;
-    return width <= budget && b.end - a.start <= o.maxDuration;
+    const gap = b.words[0]!.start - a.words[a.words.length - 1]!.end;
+    // A clear pause between them is also a rhythm boundary worth keeping.
+    return width <= budget && b.end - a.start <= o.maxDuration && gap < o.breakOnGap;
   };
   const absorb = (target: Cue, extra: Cue, after: boolean) => {
     const words = after ? [...target.words, ...extra.words] : [...extra.words, ...target.words];

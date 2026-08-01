@@ -63,8 +63,16 @@ export interface CaptionStyle {
   textColor: string;
   /** Applied by the animation mode. */
   accentColor: string;
-  /** Outline recolour for words the styling pass marked as keywords. */
+  /** Colour for words the styling pass marked as keywords. */
   keywordColor: string;
+  /**
+   * How keyword emphasis is drawn.
+   *
+   * 'outline' recolours the border, which composes with the karaoke sweep but looks
+   * harsh — a magenta border around yellow fill reads as a clash rather than emphasis.
+   * 'fill' recolours the glyph itself and is far calmer, so it is the default.
+   */
+  keywordStyle: 'none' | 'fill' | 'outline';
 
   outlineColor: string;
   /** Outline width as a percentage of frame height, so it scales with the text. */
@@ -135,7 +143,9 @@ const BASE: Omit<CaptionStyle, 'id' | 'label' | 'description'> = {
   lineSpacing: 1,
   textColor: '#FFFFFF',
   accentColor: '#FFD93D',
-  keywordColor: '#FF2D55',
+  // Same warm family as the accent rather than a clashing hue.
+  keywordColor: '#FF8A00',
+  keywordStyle: 'fill',
   outlineColor: '#000000',
   outlineWidthPct: 0.42,
   shadowColor: '#000000',

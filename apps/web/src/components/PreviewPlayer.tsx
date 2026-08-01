@@ -287,7 +287,13 @@ export function PreviewPlayer({
                           data-word
                           className="inline-block will-change-transform"
                           style={{
-                            color: isActive ? style.accentColor : style.textColor,
+                            // Keyword fill wins over the base colour but not over the
+                            // active-word accent, so emphasis never fights the sweep.
+                            color: isActive
+                              ? style.accentColor
+                              : keyword && style.keywordStyle === 'fill'
+                                ? style.keywordColor
+                                : style.textColor,
                             // Scale via font-size, not transform: a transform does not
                             // reflow, so a popped word would visually overlap its
                             // neighbour. ASS `\fscx` scales the glyph advance too, so
@@ -302,7 +308,9 @@ export function PreviewPlayer({
                             // near nothing, which is what ran the words together.
                             marginRight: wi < tokens.length - 1 ? '0.26em' : undefined,
                             textShadow: composeShadow(
-                              keyword ? style.keywordColor : style.outlineColor,
+                              keyword && style.keywordStyle === 'outline'
+                                ? style.keywordColor
+                                : style.outlineColor,
                               style.background === 'box' ? 0 : outlineWidth,
                               style.shadowColor,
                               style.background === 'box' ? 0 : shadowDepth,

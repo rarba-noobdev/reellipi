@@ -242,6 +242,34 @@ export function StyleEditor(props: Props) {
               />
             </div>
 
+            <Field label="Keyword emphasis">
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ['fill', 'Fill'],
+                    ['outline', 'Outline'],
+                    ['none', 'Off'],
+                  ] as Array<[CaptionStyle['keywordStyle'], string]>
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => set('keywordStyle', k)}
+                    className={`rounded-[--radius-md] border px-2 py-1.5 text-xs transition-colors ${
+                      style.keywordStyle === k
+                        ? 'border-ink bg-surface-soft font-medium'
+                        : 'border-hairline hover:border-ink/40'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-ink/40">
+                Outline recolours the border, which clashes on thick strokes. Fill is calmer.
+              </p>
+            </Field>
+
             <Scrub
               label="Outline width"
               value={style.outlineWidthPct}

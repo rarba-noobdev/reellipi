@@ -335,12 +335,17 @@ function isKeyword(token: string, highlight: string[] | undefined): boolean {
 }
 
 /**
- * Keyword emphasis recolours the OUTLINE, not the fill, so it composes with the karaoke
- * sweep rather than fighting it for the same channel.
+ * Keyword emphasis.
+ *
+ * 'fill' recolours the glyph and is the calm default. 'outline' recolours the border,
+ * which composes with the karaoke sweep but reads as a colour clash on a thick outline.
  */
 function keywordWrap(text: string, style: CaptionStyle, on: boolean): string {
-  if (!on) return text;
-  return `{\\3c${toAssColor(style.keywordColor)}}${text}{\\3c${toAssColor(style.outlineColor)}}`;
+  if (!on || style.keywordStyle === 'none') return text;
+  if (style.keywordStyle === 'outline') {
+    return `{\\3c${toAssColor(style.keywordColor)}}${text}{\\3c${toAssColor(style.outlineColor)}}`;
+  }
+  return `{\\c${toAssColor(style.keywordColor)}}${text}{\\c${toAssColor(style.textColor)}}`;
 }
 
 function renderLines(lines: string[], style: CaptionStyle, highlight?: string[]): string {
