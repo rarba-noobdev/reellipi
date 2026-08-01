@@ -317,7 +317,7 @@ export function PreviewPlayer({
                             ),
                           }}
                         >
-                          {token}
+                          {renderToken(token, style)}
                           {/*
                             The visible gap comes from marginRight, but a margin is not
                             text: without this the block's textContent would run every
@@ -380,6 +380,12 @@ export function PreviewPlayer({
 }
 
 const splitWords = (line: string) => line.split(/\s+/).filter(Boolean);
+
+/** Mirrors casing() in the worker's ass.ts so the preview matches the burn. */
+const TERMINAL_PUNCT = /[.!?|।॥]+(?=["')\]]?$)/u;
+function renderToken(token: string, style: CaptionStyle): string {
+  return style.punctuation === 'strip' ? token.replace(TERMINAL_PUNCT, '') : token;
+}
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const round2 = (v: number) => Math.round(v * 100) / 100;
 

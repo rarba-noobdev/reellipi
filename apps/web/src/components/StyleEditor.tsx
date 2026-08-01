@@ -184,7 +184,18 @@ export function StyleEditor(props: Props) {
                 on={style.uppercase}
                 onClick={() => set('uppercase', !style.uppercase)}
               />
+              <Toggle
+                label="No full stops"
+                on={style.punctuation === 'strip'}
+                onClick={() =>
+                  set('punctuation', style.punctuation === 'strip' ? 'keep' : 'strip')
+                }
+              />
             </div>
+            <p className="-mt-2 text-[10px] text-ink/40">
+              The cue change already marks the end of a thought, so short-form styles
+              usually drop the full stop. Downloaded .srt / .vtt keep it either way.
+            </p>
           </>
         )}
 

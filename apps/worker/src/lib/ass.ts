@@ -323,8 +323,19 @@ function dialogue(start: number, end: number, text: string): string {
   return `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${text}`;
 }
 
+/** Sentence-final marks. Commas and hyphens stay: they aid parsing mid-phrase. */
+const TERMINAL_PUNCT = /[.!?|।॥]+(?=["')\]]?$)/u;
+
+/**
+ * Render a token for display: casing, and terminal punctuation per the style.
+ *
+ * Only the burned-in caption is affected. The SRT and VTT exports are built from the
+ * unmodified cue text, so a viewer relying on the sidecar file still gets full sentences.
+ */
 function casing(text: string, style: CaptionStyle): string {
-  return style.uppercase ? text.toUpperCase() : text;
+  const stripped =
+    style.punctuation === 'strip' ? text.replace(TERMINAL_PUNCT, '') : text;
+  return style.uppercase ? stripped.toUpperCase() : stripped;
 }
 
 /** Match a rendered token against a keyword, ignoring case, punctuation and emoji. */

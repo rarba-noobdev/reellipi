@@ -39,6 +39,8 @@ export interface CaptionStyle {
   bold: boolean;
   italic: boolean;
   uppercase: boolean;
+  /** 'strip' removes sentence-final marks from the burned-in caption only. */
+  punctuation: 'keep' | 'strip';
   letterSpacing: number;
   lineSpacing: number;
 

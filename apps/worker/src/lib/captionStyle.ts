@@ -55,6 +55,16 @@ export interface CaptionStyle {
   bold: boolean;
   italic: boolean;
   uppercase: boolean;
+  /**
+   * Terminal punctuation handling.
+   *
+   * 'strip' removes sentence-final marks from the rendered caption. The cue boundary
+   * already signals the end of the thought, so on a three-word card a full stop reads as
+   * visual noise — which is why the popular short-form styles omit it. Stripping happens
+   * at DISPLAY time only: the segmenter still needs the punctuation to find sentence
+   * boundaries, and the exported SRT/VTT keep it for accessibility.
+   */
+  punctuation: 'keep' | 'strip';
   /** Extra tracking in pixels at 1080 width, scaled with the frame. */
   letterSpacing: number;
   /** Multiplier on the font's natural line height. */
@@ -139,6 +149,7 @@ const BASE: Omit<CaptionStyle, 'id' | 'label' | 'description'> = {
   bold: true,
   italic: false,
   uppercase: false,
+  punctuation: 'strip',
   letterSpacing: 0,
   lineSpacing: 1,
   textColor: '#FFFFFF',
@@ -235,6 +246,8 @@ export const PRESETS: Record<string, CaptionStyle> = {
     id: 'subtitle_box',
     label: 'Boxed',
     description: 'Dark plate behind the text, maximum legibility',
+    // Reads as a conventional subtitle, so it keeps sentence punctuation.
+    punctuation: 'keep',
     fontFamily: 'Inter Bold',
     fontSizePct: 3.4,
     outlineWidthPct: 0,

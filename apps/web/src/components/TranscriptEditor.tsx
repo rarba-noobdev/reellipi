@@ -15,6 +15,15 @@ interface Props {
   onChange: (cue: Cue) => void;
 }
 
+/** Emoji present on the rendered lines but absent from the timed word tokens. */
+function decorations(cue: Cue): string[] {
+  const inWords = new Set(cue.words.map((w) => w.w));
+  return cue.lines
+    .join(' ')
+    .split(/\s+/)
+    .filter((t) => t && !inWords.has(t) && /\p{Extended_Pictographic}/u.test(t));
+}
+
 export function TranscriptEditor({ cues, currentTime, onChange }: Props) {
   const [editing, setEditing] = useState<{ cue: number; word: number } | null>(null);
   const [draft, setDraft] = useState('');
@@ -52,8 +61,21 @@ export function TranscriptEditor({ cues, currentTime, onChange }: Props) {
               isCurrent ? 'border-ink bg-block-lime' : 'border-hairline bg-canvas'
             }`}
           >
-            <div className="mb-1 font-mono text-[10px] text-ink/40">
-              {cue.start.toFixed(2)}s → {cue.end.toFixed(2)}s
+            <div className="mb-1 flex items-baseline gap-2 font-mono text-[10px] text-ink/40">
+              <span>
+                {cue.start.toFixed(2)}s → {cue.end.toFixed(2)}s
+              </span>
+              {/*
+                Emoji and keyword marks live on cue.lines, not on the timed word tokens
+                the editor renders, so without this they were invisible here even though
+                they appear in the video. Shown read-only: an emoji has no timing of its
+                own, so it is not an editable word.
+              */}
+              {decorations(cue).map((d, i) => (
+                <span key={i} className="text-xs" title="Added by emoji & highlights">
+                  {d}
+                </span>
+              ))}
             </div>
             <div className="flex flex-wrap gap-x-1.5 gap-y-1">
               {cue.words.map((word, wi) => {

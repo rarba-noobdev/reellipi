@@ -1,5 +1,6 @@
 import type { TimedWord } from './align.js';
 import { segmentWords } from './segment.js';
+import { applyReadingTiming } from './readingTiming.js';
 
 export interface Cue {
   idx: number;
@@ -43,11 +44,13 @@ const CUE_DEFAULTS: Required<CueOptions> = {
   // less than Netflix's 42. Keep this in step with ass.ts fitFontSize().
   maxCharsPerLine: 22,
   maxLines: 2,
-  maxCps: 17,
+  // 20 CPS, not Netflix's 17: these captions accompany audible same-language speech, so
+  // they reinforce rather than carry the meaning. See lib/readingTiming.ts.
+  maxCps: 20,
   minDuration: 0.7,
   maxDuration: 7,
   breakOnGap: 0.6,
-  interCueGap: 0.084,
+  interCueGap: 0.042,
   mediaDuration: Infinity,
   maxWordsPerCue: 5,
 };
@@ -96,7 +99,16 @@ export function buildCues(words: TimedWord[], options: CueOptions = {}): Cue[] {
     words: g.words,
   }));
 
-  return enforceDurations(mergeShortCues(cues, o), o);
+  // Grouping decides WHICH words share a card; reading timing decides how long that card
+  // stays up. Keeping them separate is what lets captions hold through short pauses.
+  const merged = mergeShortCues(cues, o);
+  return applyReadingTiming(merged, {
+    cps: o.maxCps,
+    minDuration: o.minDuration,
+    maxDuration: o.maxDuration,
+    interCueGap: o.interCueGap,
+    mediaDuration: o.mediaDuration,
+  }).cues;
 }
 
 /**
@@ -209,7 +221,13 @@ export function wrapLines(words: string[], maxChars: number, maxLines: number): 
 export function finalizeCues(cues: Cue[], options: CueOptions = {}): Cue[] {
   const o = { ...CUE_DEFAULTS, ...options };
   const sorted = [...cues].sort((a, b) => a.start - b.start).map((c, i) => ({ ...c, idx: i }));
-  return enforceDurations(mergeShortCues(sorted, o), o);
+  return applyReadingTiming(mergeShortCues(sorted, o), {
+    cps: o.maxCps,
+    minDuration: o.minDuration,
+    maxDuration: o.maxDuration,
+    interCueGap: o.interCueGap,
+    mediaDuration: o.mediaDuration,
+  }).cues;
 }
 
 function enforceDurations(cues: Cue[], o: Required<CueOptions>): Cue[] {

@@ -34,6 +34,13 @@ export interface SegmentOptions {
   breakOnGap: number;
   /** Preferred on-screen time. Cues are nudged toward this for an even cadence. */
   targetDuration?: number;
+  /** Fixed cost of locating a new caption before reading starts, in seconds. */
+  acquisitionSeconds?: number;
+  /**
+   * Extra screen time a cue can expect beyond its own speech, from lead-in and hold.
+   * In continuous narration this is small, which is precisely why cues must be short.
+   */
+  spareScreenTime?: number;
 }
 
 const SENTENCE_END = /[.!?|।॥]["')\]]?$/;
@@ -115,15 +122,31 @@ function cueCost(words: TimedWord[], from: number, to: number, o: SegmentOptions
   const duration = Math.max(end - start, 0.01);
   if (duration > o.maxDuration) return Infinity;
 
+  /*
+   * READABILITY IS A HARD CONSTRAINT, not a penalty.
+   *
+   * A caption is on screen for roughly as long as its own words are spoken — in
+   * continuous narration the next cue's speech begins immediately, so there is no spare
+   * time to hold it. That means the only way to make a cue readable is to put fewer
+   * characters on it. Treating this as a soft cost produced captions that cleared before
+   * they could be read (measured comfort 0.74 across an entire clip), so a cue that
+   * cannot be read in the time it owns is rejected outright.
+   */
+  const acquisition = o.acquisitionSeconds ?? 0.15;
+  const spare = o.spareScreenTime ?? 0.12;
+  const lines = Math.min(o.maxLines, Math.max(1, Math.ceil(chars / o.maxCharsPerLine)));
+  const readable = (duration + spare - acquisition * lines * 0.6) * o.maxCps;
+  if (chars > readable) return Infinity;
+
   const target = o.targetDuration ?? Math.min(2.2, (o.minDuration + o.maxDuration) / 3);
   let cost = 0;
 
   // Rhythm: even cadence. Squared so one wildly-off cue is worse than several slightly off.
   cost += ((duration - target) / target) ** 2 * 4;
 
-  // Perception: too fast to read, or too brief to register.
-  const cps = chars / duration;
-  if (cps > o.maxCps) cost += (cps - o.maxCps) * 0.6;
+  // Prefer comfortable margin over scraping the readability limit.
+  cost += (chars / Math.max(readable, 1)) ** 2 * 2;
+
   if (duration < o.minDuration) cost += (o.minDuration - duration) * 8;
 
   // A cue that never splits an internal pause is preferable; penalise swallowing one.
@@ -143,6 +166,31 @@ function cueCost(words: TimedWord[], from: number, to: number, o: SegmentOptions
  * O(n²) — trivial for the few hundred words in a reel.
  */
 export function segmentWords(words: TimedWord[], o: SegmentOptions): Segment[] {
+  /*
+   * Readability is a hard constraint, so a very fast speaker can make every
+   * segmentation illegal. Rather than collapse to fixed-size chunks, relax the reading
+   * rate in steps and take the first setting that admits a solution — a slightly rushed
+   * caption is far better than an arbitrarily chopped one.
+   */
+  for (const relax of [1, 1.15, 1.35, 1.6, 2]) {
+    const result = solve(words, { ...o, maxCps: o.maxCps * relax });
+    if (result) return result;
+  }
+  return chunkFallback(words, o);
+}
+
+function chunkFallback(words: TimedWord[], o: SegmentOptions): Segment[] {
+  const out: Segment[] = [];
+  for (let i = 0; i < words.length; i += o.maxWordsPerCue) {
+    const slice = words.slice(i, i + o.maxWordsPerCue);
+    if (slice.length) {
+      out.push({ words: slice, start: slice[0]!.start, end: slice[slice.length - 1]!.end });
+    }
+  }
+  return out;
+}
+
+function solve(words: TimedWord[], o: SegmentOptions): Segment[] | null {
   const n = words.length;
   if (n === 0) return [];
 
@@ -166,16 +214,8 @@ export function segmentWords(words: TimedWord[], o: SegmentOptions): Segment[] {
     }
   }
 
-  // If every path was illegal (e.g. a single word longer than the char budget), fall back
-  // to fixed-size chunks so the caller always receives usable cues.
-  if (best[n] === Infinity) {
-    const out: Segment[] = [];
-    for (let i = 0; i < n; i += o.maxWordsPerCue) {
-      const slice = words.slice(i, i + o.maxWordsPerCue);
-      out.push({ words: slice, start: slice[0]!.start, end: slice[slice.length - 1]!.end });
-    }
-    return out;
-  }
+  // No legal segmentation at this reading rate; the caller retries with a relaxed one.
+  if (best[n] === Infinity) return null;
 
   const segments: Segment[] = [];
   let j = n;

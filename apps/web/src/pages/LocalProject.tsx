@@ -31,7 +31,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 /** Fields the user can override; everything else is preset identity. */
 const OVERRIDE_KEYS: Array<keyof CaptionStyle> = [
-  'fontFamily', 'fontSizePct', 'bold', 'italic', 'uppercase', 'letterSpacing', 'lineSpacing',
+  'fontFamily', 'fontSizePct', 'bold', 'italic', 'uppercase', 'punctuation',
+  'letterSpacing', 'lineSpacing',
   'textColor', 'accentColor', 'keywordColor', 'keywordStyle', 'outlineColor', 'outlineWidthPct',
   'shadowColor', 'shadowDepthPct', 'background', 'backgroundColor', 'backgroundOpacity',
   'positionY', 'positionX', 'marginXPct', 'animation', 'popScale', 'waveAmplitudePct',
