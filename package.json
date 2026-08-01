@@ -1,0 +1,24 @@
+{
+  "name": "reellipi",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/web",
+    "apps/worker"
+  ],
+  "scripts": {
+    "dev": "concurrently -n worker,web -c magenta,cyan --kill-others \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev:web": "npm run dev -w @reellipi/web",
+    "dev:worker": "npm run dev -w @reellipi/worker",
+    "build": "npm run build -w @reellipi/worker && npm run build -w @reellipi/web",
+    "typecheck": "npm run typecheck -w @reellipi/worker && npm run typecheck -w @reellipi/web"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "concurrently": "^10.0.4"
+  }
+}

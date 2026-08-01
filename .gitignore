@@ -1,0 +1,33 @@
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+# Vite writes these while resolving the config on Windows.
+*.timestamp-*.mjs
+
+# secrets — never commit
+.env
+.env.*
+!.env.example
+
+# worker scratch space + probe artifacts
+tmp/
+apps/worker/tmp/
+_probe/out/
+*.log
+
+# Local-mode project storage: users' uploaded videos, renders and transcripts.
+# Never commit — this is personal content, and the MP4s are tens of megabytes.
+apps/worker/data/
+
+# Bundled fonts are fetched by scripts/fetch-fonts.ts; no need to version ~3MB of TTFs.
+apps/worker/fonts/*.ttf
+
+# Playwright output contains frames of whatever clip was being tested.
+e2e/shots/
+playwright-report/
+test-results/
+
+.DS_Store
+Thumbs.db
