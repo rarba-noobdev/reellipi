@@ -19,6 +19,8 @@ export interface LocalProject {
   styleOverrides: Partial<CaptionStyle>;
   timingOffsetMs: number;
   smartGrouping: boolean;
+  /** Fingerprint of the style that produced the current output file. */
+  renderedStyleKey: string | null;
   durationSeconds: number | null;
   detectedLanguage: string | null;
   timingApproximate: boolean;

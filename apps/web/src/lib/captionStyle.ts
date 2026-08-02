@@ -185,11 +185,16 @@ export function fitFontSize(
   return Math.max(8, Math.min(requestedSize, usable / widest));
 }
 
-/** Fractions of the frame that Instagram's own UI covers. */
+/**
+ * Fractions of the frame Instagram's own UI covers.
+ *
+ * Meta publishes 14% top / 35% bottom / 6% sides for Reels, with the right rail about
+ * 90px of a 1080px width. Keep in step with IG_OCCLUSION in InstagramChrome.tsx.
+ */
 export const IG_OCCLUSION = {
-  topPct: 0.11,
-  bottomPct: 0.26,
-  rightRailPct: 0.12,
+  topPct: 0.14,
+  bottomPct: 0.35,
+  rightRailPct: 0.09,
 } as const;
 
 /**

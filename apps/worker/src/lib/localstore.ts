@@ -46,6 +46,15 @@ export interface LocalProject {
    * batches fall back, costing time and tokens for a cosmetic gain.
    */
   smartGrouping: boolean;
+  /**
+   * Fingerprint of the style that produced the current output file.
+   *
+   * The preview always reflects the live draft while the download reflects the last
+   * render, so the two legitimately diverge the moment anything is edited. Recording
+   * what was actually burned in lets the UI say so instead of leaving the user to spot
+   * the difference themselves.
+   */
+  renderedStyleKey: string | null;
   durationSeconds: number | null;
   detectedLanguage: string | null;
   timingApproximate: boolean;
@@ -86,6 +95,7 @@ export async function createProject(init: {
     styleOverrides: {},
     timingOffsetMs: 0,
     smartGrouping: false,
+    renderedStyleKey: null,
     durationSeconds: null,
     detectedLanguage: null,
     timingApproximate: true,
@@ -111,6 +121,7 @@ export async function readProject(id: string): Promise<LocalProject | null> {
       styleOverrides: raw.styleOverrides ?? {},
       timingOffsetMs: raw.timingOffsetMs ?? 0,
       smartGrouping: raw.smartGrouping ?? false,
+      renderedStyleKey: raw.renderedStyleKey ?? null,
     };
   } catch {
     return null;

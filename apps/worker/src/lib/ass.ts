@@ -300,14 +300,20 @@ function waveEvents(
         if (spokenStart - cue.start > 0.01) events.push(dialogue(cue.start, spokenStart, rest));
         if (cue.end - spokenEnd > 0.01) events.push(dialogue(spokenEnd, cue.end, rest));
 
-        // Travelling bump: while this word is spoken it lifts, recolours and grows.
+        /*
+         * Travelling bump. \move tweens the position over the rise, and \t handles the
+         * colour and scale; teleporting the word to the lifted position made the wave
+         * look like it was skipping frames.
+         */
         const lift = Math.round(restY - amplitude * 0.9);
+        const rise = Math.min(POP_MS, Math.round((spokenEnd - spokenStart) * 1000 * 0.5));
+        const s = Math.round(style.popScale);
         events.push(
           dialogue(
             spokenStart,
             spokenEnd,
-            `{\\an5\\pos(${x},${lift})\\c${accent}${outline}` +
-              `\\fscx${Math.round(style.popScale)}\\fscy${Math.round(style.popScale)}}${text}`,
+            `{\\an5\\move(${x},${Math.round(restY)},${x},${lift},0,${rise})${outline}` +
+              `\\c${colour}\\t(0,${rise},0.6,\\c${accent}\\fscx${s}\\fscy${s})}${text}`,
           ),
         );
       }
@@ -337,6 +343,17 @@ function casing(text: string, style: CaptionStyle): string {
     style.punctuation === 'strip' ? text.replace(TERMINAL_PUNCT, '') : text;
   return style.uppercase ? stripped.toUpperCase() : stripped;
 }
+
+/**
+ * Emphasis timing, in milliseconds.
+ *
+ * 140ms is long enough to be perceived as movement rather than a jump, and short enough
+ * that the word is at full size while it is still being spoken — the peak has to land on
+ * the syllable, not after it. The settle is longer than the rise because decelerating
+ * slowly and accelerating quickly is what reads as physical.
+ */
+const POP_MS = 140;
+const SETTLE_MS = 180;
 
 const EMOJI = /\p{Extended_Pictographic}/u;
 /** A token that is purely emoji, as opposed to a word that happens to carry one. */
@@ -412,7 +429,13 @@ function karaokeEvent(cue: Cue, style: CaptionStyle, anchor: string): string {
     line.forEach((entry, wi) => {
       const cs = Math.max(1, Math.round((entry.end - entry.start) * 100));
       const text = keywordWrap(escapeText(casing(entry.w, style)), style, isKeyword(entry.w, cue.highlight));
-      parts.push(`{\\k${cs}}${text}${wi < line.length - 1 ? ' ' : ''}`);
+      /*
+       * `\kf`, not `\k`. `\k` flips the whole word to the sung colour the instant its
+       * turn arrives, which reads as a blink. `\kf` sweeps the fill across the glyphs
+       * over the word's duration, which is the motion people actually recognise as
+       * karaoke and is smooth at any frame rate.
+       */
+      parts.push(`{\\kf${cs}}${text}${wi < line.length - 1 ? ' ' : ''}`);
     });
   });
   return dialogue(cue.start, cue.end, parts.join(''));
@@ -451,12 +474,23 @@ function popEvents(cue: Cue, style: CaptionStyle, anchor: string): string[] {
             flatIndex <= activeIndex ? text : `{\\alpha&HFF&}${text}{\\alpha&H00&}`,
           );
         } else if (entry === active) {
+          /*
+           * Interpolate, do not snap.
+           *
+           * Applying \fscx directly moved the word from 100% to its full scale in a
+           * single frame, and \c switched the colour just as abruptly. At 30fps that
+           * reads as a stutter rather than a pop. `\t(t1,t2,accel,...)` tweens between
+           * the current and target values; accel below 1 decelerates, which is the
+           * ease-out shape motion research consistently finds people read as natural.
+           */
           const emphasis =
             style.animation === 'bounce'
-              // Overshoot then settle: 120ms out, 140ms back.
-              ? `{\\c${accent}\\fscx100\\fscy100\\t(0,120,\\fscx${scale}\\fscy${scale})` +
-                `\\t(120,260,\\fscx100\\fscy100)}`
-              : `{\\c${accent}\\fscx${scale}\\fscy${scale}}`;
+              // Overshoot then settle.
+              ? `{\\c${base}\\fscx100\\fscy100` +
+                `\\t(0,${POP_MS},0.7,\\c${accent}\\fscx${scale}\\fscy${scale})` +
+                `\\t(${POP_MS},${POP_MS + SETTLE_MS},1.4,\\fscx100\\fscy100)}`
+              : `{\\c${base}\\fscx100\\fscy100` +
+                `\\t(0,${POP_MS},0.6,\\c${accent}\\fscx${scale}\\fscy${scale})}`;
           parts.push(`${emphasis}${text}{\\c${base}\\fscx100\\fscy100}`);
         } else {
           parts.push(text);

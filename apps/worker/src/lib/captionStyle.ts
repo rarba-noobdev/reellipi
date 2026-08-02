@@ -164,7 +164,13 @@ const BASE: Omit<CaptionStyle, 'id' | 'label' | 'description'> = {
   background: 'none',
   backgroundColor: '#000000',
   backgroundOpacity: 0.6,
-  positionY: 0.65,
+  /*
+   * Instagram's own UI covers the bottom 35% of the frame, so 0.65 put the caption
+   * exactly on the boundary and it collided with the handle and caption row. 0.55 sits
+   * in the lower half of the usable 14%-65% band: low enough to read as a caption rather
+   * than a title, clear enough to survive a two-line cue.
+   */
+  positionY: 0.55,
   positionX: 0.5,
   marginXPct: 11,
   animation: 'karaoke',

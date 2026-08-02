@@ -63,6 +63,30 @@ export type LocalStage =
  * Cue segmentation is driven by the resolved style, so changing words-per-cue or the
  * duration bounds regroups on the next restyle rather than needing a fresh transcription.
  */
+/**
+ * Fingerprint of everything that changes the burned-in output.
+ *
+ * Stable key order matters: JSON.stringify over an object literal would reorder as
+ * fields are added and spuriously invalidate every existing render.
+ */
+export function styleKey(project: {
+  stylePreset: string;
+  styleOverrides: Record<string, unknown>;
+  timingOffsetMs: number;
+  smartGrouping: boolean;
+}): string {
+  const overrides = Object.keys(project.styleOverrides ?? {})
+    .sort()
+    .map((k) => `${k}=${String((project.styleOverrides as Record<string, unknown>)[k])}`)
+    .join(',');
+  return [
+    project.stylePreset,
+    overrides,
+    `offset=${project.timingOffsetMs ?? 0}`,
+    `smart=${project.smartGrouping ? 1 : 0}`,
+  ].join('|');
+}
+
 function cueOptionsFor(project: LocalProject) {
   const style = applyOverrides(resolvePreset(project.stylePreset), project.styleOverrides);
   return {
@@ -213,6 +237,9 @@ async function processLocal(projectId: string, stage: LocalStage): Promise<void>
     await patchProject(projectId, {
       status: 'done',
       progress: 100,
+      // Record exactly what was burned in, so the UI can tell when the download has
+      // fallen behind the draft the user is looking at.
+      renderedStyleKey: styleKey(project),
       outputFile: path.basename(result.outputPath),
       durationSeconds: result.durationSeconds,
       error: null,

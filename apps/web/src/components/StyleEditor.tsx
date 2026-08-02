@@ -362,7 +362,7 @@ export function StyleEditor(props: Props) {
             </div>
             <button
               type="button"
-              onClick={() => onChange({ ...style, positionX: 0.5, positionY: 0.65 })}
+              onClick={() => onChange({ ...style, positionX: 0.5, positionY: 0.55 })}
               className="btn-secondary w-full"
             >
               Recentre in safe area

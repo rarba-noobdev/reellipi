@@ -44,6 +44,24 @@ const REGROUP_KEYS: Array<keyof CaptionStyle> = [
   'maxWordsPerCue', 'maxLines', 'maxCharsPerLine', 'minDurationSec', 'maxDurationSec',
 ];
 
+/**
+ * Mirror of styleKey() in the worker's localPipeline.ts. Must stay in step, or the UI
+ * will either nag about a fresh export or stay silent about a stale one.
+ */
+function styleKeyOf(
+  style: CaptionStyle,
+  base: CaptionStyle,
+  offsetMs: number,
+  smart: boolean,
+): string {
+  const overrides = diffOverrides(base, style);
+  const serialised = Object.keys(overrides)
+    .sort()
+    .map((k) => `${k}=${String((overrides as Record<string, unknown>)[k])}`)
+    .join(',');
+  return [style.id, serialised, `offset=${offsetMs}`, `smart=${smart ? 1 : 0}`].join('|');
+}
+
 function diffOverrides(base: CaptionStyle, edited: CaptionStyle): Partial<CaptionStyle> {
   const out: Partial<CaptionStyle> = {};
   for (const k of OVERRIDE_KEYS) {
@@ -140,17 +158,30 @@ export function LocalProjectPage() {
     JSON.stringify(draftStyle) !== JSON.stringify(savedStyle) ||
     draftOffset !== (project.timingOffsetMs ?? 0) ||
     draftSmart !== (project.smartGrouping ?? false);
+
+  const basePreset =
+    presets.data!.presets.find((p) => p.id === draftStyle.id) ?? presets.data!.presets[0]!;
+
+  /*
+   * The download can also be behind without the draft being dirty — for example the
+   * saved style was changed by a restyle that has not been re-rendered. Compare against
+   * the fingerprint recorded when the file was actually produced.
+   */
+  const currentKey = styleKeyOf(draftStyle, basePreset, draftOffset, draftSmart);
+  const exportStale =
+    project.status === 'done' &&
+    project.renderedStyleKey !== null &&
+    project.renderedStyleKey !== currentKey;
   const renderedReady = project.status === 'done' && project.outputFile;
-  const showBaked = Boolean(renderedReady && showRendered && !dirty);
+  // Only show the exported file when it actually represents the current style; otherwise
+  // the preview would be silently displaying something the settings no longer describe.
+  const showBaked = Boolean(renderedReady && showRendered && !dirty && !exportStale);
 
   const videoSrc = showBaked
     ? localFileUrl(project.id, project.outputFile!)
     : project.sourceFile
       ? localFileUrl(project.id, project.sourceFile)
       : null;
-
-  const basePreset =
-    presets.data!.presets.find((p) => p.id === draftStyle.id) ?? presets.data!.presets[0]!;
 
   return (
     <div className="space-y-6">
@@ -168,8 +199,16 @@ export function LocalProjectPage() {
         </div>
 
         {renderedReady && (
-          <div className="flex flex-wrap gap-2">
-            <a href={localFileUrl(project.id, project.outputFile!, true)} className="btn-primary">
+          <div className="flex flex-wrap items-center gap-2">
+            {exportStale && (
+              <span className="rounded-[--radius-pill] bg-block-coral px-3 py-1.5 text-[11px] font-medium">
+                Download is from an older style — Apply to update it
+              </span>
+            )}
+            <a
+              href={localFileUrl(project.id, project.outputFile!, true)}
+              className={exportStale ? 'btn-secondary' : 'btn-primary'}
+            >
               Download MP4
             </a>
             <a href={localFileUrl(project.id, 'out.srt', true)} className="btn-secondary">
@@ -294,7 +333,7 @@ export function LocalProjectPage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setDraftStyle({ ...draftStyle, positionX: 0.5, positionY: 0.62 })}
+                  onClick={() => setDraftStyle({ ...draftStyle, positionX: 0.5, positionY: 0.55 })}
                   className="ml-auto shrink-0 rounded-[--radius-pill] border border-ink/30 px-2 py-0.5 font-medium hover:border-ink"
                 >
                   Fix

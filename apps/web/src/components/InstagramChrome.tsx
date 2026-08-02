@@ -1,79 +1,89 @@
 /**
  * Instagram Reels UI mock, drawn over the caption preview.
  *
- * The point is occlusion: abstract "safe area" rectangles do not tell a creator whether
- * their caption collides with the action rail or the audio ticker. Rendering the actual
- * chrome does. Proportions are taken from a 1080x1920 Reels frame and expressed as
- * percentages so they hold at any preview size.
+ * Proportions follow Meta's published safe-area guidance for a 1080x1920 Reel: roughly
+ * 14% of the height at the top, 35% at the bottom, and 6% on each side. Within that, the
+ * right rail is about 90px wide (8.3%) and the bottom-left metadata block about 200px
+ * tall. Everything is expressed as a percentage so it holds at any preview size.
+ *
+ * The point is occlusion. A creator cannot tell from a dashed rectangle whether their
+ * caption collides with the action rail; showing the actual chrome makes it obvious.
  */
 
 interface Props {
   username: string;
   caption: string;
   audioTitle: string;
-  /** Dim the video so the mock UI reads clearly. */
-  dim?: boolean;
 }
 
 /**
- * Occupied bands as fractions of the frame — kept in sync with the layout below.
+ * Fractions of the frame Instagram's own UI covers.
  *
- * The rail is a 3.5% right margin plus ~6cqw icons, so ~10% of the width. A wider
- * figure here fires the collision warning on captions that are actually clear.
+ * Meta publishes 14% top / 35% bottom / 6% sides. The bottom figure is the full
+ * congested band — handle, Follow, caption and audio credit — not just the text.
  */
 export const IG_OCCLUSION = {
-  topPct: 0.11,
-  bottomPct: 0.26,
-  rightRailPct: 0.12,
+  topPct: 0.14,
+  bottomPct: 0.35,
+  rightRailPct: 0.09,
+  sidePct: 0.06,
 } as const;
 
-export function InstagramChrome({ username, caption, audioTitle, dim }: Props) {
+export function InstagramChrome({ username, caption, audioTitle }: Props) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 text-white">
-      {dim && <div className="absolute inset-0 bg-black/10" />}
+      {/* Scrims. Instagram darkens both ends so its own white UI stays legible. */}
+      <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-black/60 via-black/25 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
 
-      {/* Top gradient + header */}
-      <div className="absolute inset-x-0 top-0 h-[14%] bg-gradient-to-b from-black/55 to-transparent" />
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[4%] pt-[3.5%]">
-        <span className="text-[clamp(11px,3.4cqw,17px)] font-semibold drop-shadow">Reels</span>
+      {/* Header */}
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[4.5%] pt-[4%]">
+        <span className="text-[clamp(12px,4cqw,20px)] font-semibold drop-shadow-md">Reels</span>
         <Camera />
       </div>
 
-      {/* Right action rail */}
-      <div className="absolute right-[3.5%] bottom-[13%] flex flex-col items-center gap-[5%]">
+      {/*
+        Right rail. Bottom-aligned just above the metadata block, which is where
+        Instagram puts it — a rail centred vertically would misrepresent the collision
+        risk for captions in the lower third.
+      */}
+      <div className="absolute right-[3%] bottom-[19%] flex flex-col items-center gap-[4.5%]">
         <Action icon={<Heart />} label="12.4K" />
         <Action icon={<Comment />} label="318" />
         <Action icon={<Share />} label="1,204" />
         <Action icon={<Bookmark />} />
         <Action icon={<Dots />} />
-        {/* Rotating album art, as Instagram shows for the audio track. */}
-        <div className="mt-[6%] h-[clamp(18px,7cqw,34px)] w-[clamp(18px,7cqw,34px)] rounded-[6px] border-2 border-white/85 bg-gradient-to-br from-fuchsia-500 to-amber-400" />
+        {/* Audio thumbnail, square with a light border, sits at the foot of the rail. */}
+        <div className="mt-[8%] h-[clamp(20px,7cqw,38px)] w-[clamp(20px,7cqw,38px)] rounded-[7px] border-2 border-white/90 bg-gradient-to-br from-fuchsia-500 via-rose-400 to-amber-400 shadow-md" />
       </div>
 
-      {/* Bottom gradient + metadata */}
-      <div className="absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 px-[4%] pb-[5%]">
-        <div className="mb-[2%] flex items-center gap-[2%]">
-          <div className="h-[clamp(16px,6cqw,30px)] w-[clamp(16px,6cqw,30px)] rounded-full border border-white/70 bg-gradient-to-br from-orange-400 to-pink-500" />
-          <span className="text-[clamp(10px,3.1cqw,15px)] font-semibold drop-shadow">{username}</span>
-          <span className="rounded-[4px] border border-white/80 px-[6px] py-[1px] text-[clamp(8px,2.4cqw,12px)] font-medium">
+      {/* Bottom-left metadata: handle, caption, audio credit. */}
+      <div className="absolute inset-x-0 bottom-0 px-[4.5%] pb-[4%]">
+        <div className="mb-[2.2%] flex items-center gap-[2.5%]">
+          <div className="h-[clamp(18px,6.5cqw,32px)] w-[clamp(18px,6.5cqw,32px)] shrink-0 rounded-full border-2 border-white/90 bg-gradient-to-br from-orange-400 via-rose-500 to-fuchsia-600" />
+          <span className="text-[clamp(11px,3.4cqw,17px)] font-semibold drop-shadow-md">
+            {username}
+          </span>
+          <span className="rounded-[6px] border border-white/90 px-[7px] py-[1.5px] text-[clamp(9px,2.7cqw,13px)] font-semibold">
             Follow
           </span>
         </div>
 
-        <p className="mr-[20%] line-clamp-2 text-[clamp(9px,2.8cqw,14px)] leading-snug drop-shadow">
+        {/* Caption is clipped to two lines by Instagram, with the rail keeping it narrow. */}
+        <p className="mr-[18%] line-clamp-2 text-[clamp(10px,3cqw,15px)] leading-snug drop-shadow-md">
           {caption}
         </p>
 
-        <div className="mt-[2.5%] flex items-center gap-[1.5%]">
+        <div className="mt-[2.5%] flex items-center gap-[2%]">
           <Note />
-          <span className="truncate text-[clamp(8px,2.5cqw,12px)] drop-shadow">{audioTitle}</span>
+          <span className="mr-[20%] truncate text-[clamp(9px,2.7cqw,13px)] drop-shadow-md">
+            {audioTitle}
+          </span>
         </div>
       </div>
 
-      {/* Scrub bar */}
-      <div className="absolute inset-x-0 bottom-[1.5%] mx-[4%] h-[2px] rounded-full bg-white/30">
-        <div className="h-full w-1/3 rounded-full bg-white/90" />
+      <div className="absolute inset-x-0 bottom-[1.2%] mx-[4.5%] h-[2.5px] rounded-full bg-white/25">
+        <div className="h-full w-1/3 rounded-full bg-white/95" />
       </div>
     </div>
   );
@@ -81,46 +91,48 @@ export function InstagramChrome({ username, caption, audioTitle, dim }: Props) {
 
 function Action({ icon, label }: { icon: React.ReactNode; label?: string }) {
   return (
-    <div className="flex flex-col items-center gap-[2px]">
+    <div className="flex flex-col items-center gap-[3px]">
       {icon}
-      {label && <span className="text-[clamp(7px,2.1cqw,11px)] font-medium drop-shadow">{label}</span>}
+      {label && (
+        <span className="text-[clamp(8px,2.3cqw,12px)] font-semibold drop-shadow-md">{label}</span>
+      )}
     </div>
   );
 }
 
-/* Inline SVGs rather than an icon package: five glyphs do not justify a dependency,
-   and these need to scale with the container query units used above. */
-const ICON = 'h-[clamp(16px,6cqw,30px)] w-[clamp(16px,6cqw,30px)] drop-shadow';
+/* Inline SVGs rather than an icon package: six glyphs do not justify a dependency, and
+   these need to scale with the container-query units used above. */
+const ICON = 'h-[clamp(18px,6.5cqw,32px)] w-[clamp(18px,6.5cqw,32px)] drop-shadow-md';
 
 const Heart = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className={ICON}>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={ICON}>
     <path d="M12 20.7s-7.5-4.6-9.3-9A5.1 5.1 0 0 1 12 6.4a5.1 5.1 0 0 1 9.3 5.3c-1.8 4.4-9.3 9-9.3 9Z" />
   </svg>
 );
 const Comment = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className={ICON}>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={ICON}>
     <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.8A8.3 8.3 0 0 1 3.6 11a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8.4 8.9Z" />
   </svg>
 );
 const Share = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className={ICON}>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={ICON}>
     <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
   </svg>
 );
 const Bookmark = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className={ICON}>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={ICON}>
     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
   </svg>
 );
 const Dots = () => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={ICON}>
-    <circle cx="5" cy="12" r="1.6" />
-    <circle cx="12" cy="12" r="1.6" />
-    <circle cx="19" cy="12" r="1.6" />
+    <circle cx="5" cy="12" r="1.5" />
+    <circle cx="12" cy="12" r="1.5" />
+    <circle cx="19" cy="12" r="1.5" />
   </svg>
 );
 const Camera = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className={ICON}>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={ICON}>
     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
     <circle cx="12" cy="13" r="4" />
   </svg>
@@ -131,7 +143,7 @@ const Note = () => (
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
-    className="h-[clamp(9px,3cqw,14px)] w-[clamp(9px,3cqw,14px)] shrink-0 drop-shadow"
+    className="h-[clamp(10px,3.2cqw,15px)] w-[clamp(10px,3.2cqw,15px)] shrink-0 drop-shadow-md"
   >
     <path d="M9 18V5l12-2v13" />
     <circle cx="6" cy="18" r="3" />

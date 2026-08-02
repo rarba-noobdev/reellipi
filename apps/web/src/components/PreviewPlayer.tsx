@@ -21,7 +21,8 @@ import {
  * fontSizePct.
  */
 
-const SAFE = { topPct: 0.13, bottomPct: 0.25, sidePct: 0.11 };
+/** Meta's published Reels safe area: 14% top, 35% bottom, 6% sides. */
+const SAFE = { topPct: 0.14, bottomPct: 0.35, sidePct: 0.06 };
 /** Snap the caption to these fractions when dragged within SNAP_TOLERANCE. */
 const SNAP_TARGETS = [0.5];
 const SNAP_TOLERANCE = 0.02;
@@ -200,14 +201,26 @@ export function PreviewPlayer({
         {mode === 'guides' && (
           <div className="pointer-events-none absolute inset-0">
             <div
-              className="absolute inset-x-0 top-0 border-b border-dashed border-white/40 bg-black/25"
+              className="absolute inset-x-0 top-0 border-b border-dashed border-white/40 bg-black/30"
               style={{ height: `${SAFE.topPct * 100}%` }}
             />
             <div
-              className="absolute inset-x-0 bottom-0 border-t border-dashed border-white/40 bg-black/25"
+              className="absolute inset-x-0 bottom-0 border-t border-dashed border-white/40 bg-black/30"
               style={{ height: `${SAFE.bottomPct * 100}%` }}
             />
+            <div
+              className="absolute inset-y-0 left-0 border-r border-dashed border-white/25 bg-black/20"
+              style={{ width: `${SAFE.sidePct * 100}%` }}
+            />
+            <div
+              className="absolute inset-y-0 right-0 border-l border-dashed border-white/25 bg-black/20"
+              style={{ width: `${SAFE.sidePct * 100}%` }}
+            />
             <div className="absolute inset-y-0 left-1/2 w-px bg-white/20" />
+            <span className="absolute left-1/2 -translate-x-1/2 text-[10px] text-white/60"
+                  style={{ top: `${SAFE.topPct * 100 + 1}%` }}>
+              safe area
+            </span>
           </div>
         )}
 
