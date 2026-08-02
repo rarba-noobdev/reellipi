@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { buildAss, type BuildAssOptions } from '../lib/ass.js';
 import { applyOverrides, resolvePreset, type CaptionStyle } from '../lib/captionStyle.js';
-import { burnSubtitles, probe } from '../lib/ffmpeg.js';
+import { burnSubtitles, probe, type EncodeQuality } from '../lib/ffmpeg.js';
 import { toSrt, toVtt, type Cue } from '../lib/subtitles.js';
 
 /** Bundled with the worker image; see scripts/fetch-fonts.ts. */
@@ -20,6 +20,7 @@ export interface RenderOptions {
   artifactDir?: string;
   crf?: number;
   ffmpegPreset?: string;
+  quality?: EncodeQuality;
   /** Free-plan branding. Omit for paid plans. */
   watermarkText?: string | null;
 }
@@ -67,6 +68,7 @@ export async function renderCaptionedVideo(o: RenderOptions): Promise<RenderResu
     assPath,
     fontsDir: FONTS_DIR,
     output: o.outputPath,
+    quality: o.quality,
     crf: o.crf,
     preset: o.ffmpegPreset,
     watermark: o.watermarkText
