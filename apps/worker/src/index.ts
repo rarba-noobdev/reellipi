@@ -8,6 +8,7 @@ import { planFor, periodExpired, PLANS } from './lib/plans.js';
 import { getProject, signedUrl, supabase, updateProject, BUCKET_OUT } from './lib/supabase.js';
 import { deleteAllUserData, purgeExpiredProjects } from './jobs/retention.js';
 import { localRouter } from './localRoutes.js';
+import { recoverInterruptedProjects } from './jobs/localPipeline.js';
 
 /**
  * With no Supabase configured we run single-user off the filesystem, with an in-process
@@ -69,7 +70,14 @@ app.get('/health', (_req, res) => {
   });
 });
 
-if (LOCAL_MODE) app.use('/local', localRouter());
+if (LOCAL_MODE) {
+  app.use('/local', localRouter());
+  // The in-memory queue does not survive a restart, so anything left mid-flight has to
+  // be picked up or failed explicitly, or it spins in the UI forever.
+  void recoverInterruptedProjects()
+    .then((n) => n && console.log(`[recover] handled ${n} interrupted project(s)`))
+    .catch((e) => console.error('[recover]', e));
+}
 
 /** The editor needs the full style objects so its preview can match the renderer. */
 app.get('/presets', (_req, res) => {

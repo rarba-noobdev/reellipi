@@ -3,6 +3,7 @@ import { transcribeMedia } from './transcribe.js';
 import { styleCues } from './style.js';
 import { renderCaptionedVideo } from './render.js';
 import {
+  listProjects,
   patchProject,
   readCues,
   readProject,
@@ -71,6 +72,37 @@ function cueOptionsFor(project: LocalProject) {
     minDuration: style.minDurationSec,
     maxDuration: style.maxDurationSec,
   };
+}
+
+/**
+ * Recover projects left mid-flight by a crash or restart.
+ *
+ * The queue lives in memory, so a worker that dies during a render leaves the project
+ * row saying 'rendering' forever with nothing scheduled to finish it. On boot, resume
+ * anything that already has cues (cheap: no transcription) and fail the rest with a
+ * message rather than leaving them spinning in the UI.
+ */
+export async function recoverInterruptedProjects(): Promise<number> {
+  const busy = ['uploaded', 'transcribing', 'styling', 'rendering'];
+  const projects = await listProjects();
+  let recovered = 0;
+
+  for (const p of projects.filter((x) => busy.includes(x.status))) {
+    const cues = await readCues(p.id);
+    if (cues.length > 0 && p.sourceFile) {
+      console.warn(`[recover] resuming render for ${p.id.slice(0, 8)} (was ${p.status})`);
+      await patchProject(p.id, { status: 'ready_to_render', progress: 65, error: null });
+      runLocalProject(p.id, 'render');
+    } else {
+      console.warn(`[recover] marking ${p.id.slice(0, 8)} failed (was ${p.status}, no cues)`);
+      await patchProject(p.id, {
+        status: 'failed',
+        error: 'Processing was interrupted before it finished. Re-run to try again.',
+      });
+    }
+    recovered++;
+  }
+  return recovered;
 }
 
 export function runLocalProject(projectId: string, stage: LocalStage = 'full'): void {

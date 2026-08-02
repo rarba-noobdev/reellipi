@@ -55,7 +55,7 @@ export function StyleEditor(props: Props) {
     onChange({ ...style, [key]: value });
 
   return (
-    <div className="card overflow-hidden">
+    <div data-style-editor className="card overflow-hidden">
       <nav className="flex border-b border-hairline">
         {SECTIONS.map((s) => (
           <button
