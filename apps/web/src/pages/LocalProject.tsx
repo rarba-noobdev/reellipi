@@ -80,13 +80,20 @@ export function LocalProjectPage() {
 
   const project = q.data?.project;
 
-  /** Preset as authored, plus whatever overrides were last applied. */
+  /**
+   * Preset as authored, plus whatever overrides were last applied.
+   *
+   * Returns null until BOTH the presets and the project have loaded. They arrive from
+   * different requests, and resolving early meant falling back to presets[0]: the draft
+   * then adopted the wrong preset and, because it is only adopted once, never corrected
+   * itself. The preview showed one style while the export used another.
+   */
   const savedStyle = useMemo(() => {
     const list = presets.data?.presets;
-    if (!list?.length) return null;
-    const base = list.find((p) => p.id === project?.stylePreset) ?? list[0]!;
-    return { ...base, ...(project?.styleOverrides ?? {}) } as CaptionStyle;
-  }, [presets.data, project?.stylePreset, project?.styleOverrides]);
+    if (!list?.length || !project) return null;
+    const base = list.find((p) => p.id === project.stylePreset) ?? list[0]!;
+    return { ...base, ...(project.styleOverrides ?? {}) } as CaptionStyle;
+  }, [presets.data, project]);
 
   useEffect(() => {
     if (q.data?.cues) setLocalCues(q.data.cues);
@@ -321,8 +328,18 @@ export function LocalProjectPage() {
           onChange={setDraftStyle}
           onSelectPreset={(presetId) => {
             const next = presets.data!.presets.find((p) => p.id === presetId);
-            // Selecting a preset discards overrides, matching what the server does.
-            if (next) setDraftStyle({ ...next });
+            if (!next) return;
+            /*
+             * A preset defines the LOOK. Where the caption sits on the frame is a
+             * placement decision the user made by dragging, and it survives a preset
+             * change — having the block jump back to centre every time you audition a
+             * style makes the picker unusable.
+             */
+            setDraftStyle({
+              ...next,
+              positionX: draftStyle.positionX,
+              positionY: draftStyle.positionY,
+            });
           }}
           onReset={() => {
             setDraftStyle({ ...basePreset });

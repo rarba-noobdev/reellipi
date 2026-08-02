@@ -338,6 +338,27 @@ function casing(text: string, style: CaptionStyle): string {
   return style.uppercase ? stripped.toUpperCase() : stripped;
 }
 
+const EMOJI = /\p{Extended_Pictographic}/u;
+/** A token that is purely emoji, as opposed to a word that happens to carry one. */
+const isEmojiToken = (t: string) => EMOJI.test(t) && !/[\p{L}\p{N}]/u.test(t);
+
+/**
+ * Draw an emoji as an image rather than as text.
+ *
+ * Two things were wrong. libass was left to pick its own fallback for emoji codepoints
+ * and chose whatever the host offered first — a monochrome face on Windows, and nothing
+ * at all inside the Docker image, where the glyph became a tofu box. And the caption's
+ * own treatment was applied to it, so the outline traced a rectangle around the bitmap
+ * and the karaoke sweep tinted it.
+ *
+ * Naming the CBDT colour font explicitly fixes the first; dropping border and shadow
+ * fixes the second. `\r` then resets every override back to the style, which avoids
+ * having to reconstruct whatever state the caller had set.
+ */
+function emojiWrap(text: string): string {
+  return `{\\fnNoto Color Emoji\\bord0\\shad0}${text}{\\r}`;
+}
+
 /** Match a rendered token against a keyword, ignoring case, punctuation and emoji. */
 function isKeyword(token: string, highlight: string[] | undefined): boolean {
   if (!highlight?.length) return false;
@@ -352,6 +373,9 @@ function isKeyword(token: string, highlight: string[] | undefined): boolean {
  * which composes with the karaoke sweep but reads as a colour clash on a thick outline.
  */
 function keywordWrap(text: string, style: CaptionStyle, on: boolean): string {
+  // An emoji is an image, not a glyph: it carries its own colour and must not take the
+  // caption's fill, outline or shadow.
+  if (isEmojiToken(text)) return emojiWrap(text);
   if (!on || style.keywordStyle === 'none') return text;
   if (style.keywordStyle === 'outline') {
     return `{\\3c${toAssColor(style.keywordColor)}}${text}{\\3c${toAssColor(style.outlineColor)}}`;

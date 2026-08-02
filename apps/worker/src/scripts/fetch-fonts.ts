@@ -37,6 +37,16 @@ const DISPLAY_FONTS: Array<{ file: string; url: string }> = [
   { file: 'Poppins-Bold.ttf', url: `${GF}/ofl/poppins/Poppins-Bold.ttf` },
   { file: 'Poppins-ExtraBold.ttf', url: `${GF}/ofl/poppins/Poppins-ExtraBold.ttf` },
   { file: 'Bangers-Regular.ttf', url: `${GF}/ofl/bangers/Bangers-Regular.ttf` },
+  /*
+   * Emoji. Without this libass falls back to whatever the host happens to have — a flat
+   * monochrome glyph on Windows, and nothing at all inside the Docker image, where an
+   * emoji would render as a tofu box. Noto Color Emoji is a CBDT colour-bitmap font,
+   * which libass has supported since 0.15.
+   */
+  {
+    file: 'NotoColorEmoji.ttf',
+    url: 'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/fonts/NotoColorEmoji.ttf',
+  },
 ];
 
 /** Static TTFs from the notofonts.github.io mirror, which serves stable paths. */
