@@ -10,6 +10,7 @@ import {
   createProject,
   deleteProject,
   ensureDataDir,
+  listCueLanguages,
   listProjects,
   patchProject,
   readCues,
@@ -17,6 +18,8 @@ import {
   resolveProjectFile,
   writeCues,
 } from './lib/localstore.js';
+import { findTarget, translateCues, TRANSLATE_TARGETS } from './lib/translate.js';
+import { wrapLines } from './lib/subtitles.js';
 import { queueDepth, runLocalProject } from './jobs/localPipeline.js';
 import type { Cue } from './lib/subtitles.js';
 
@@ -114,6 +117,8 @@ export function localRouter(): Router {
         smartGrouping?: boolean;
         /** Set when a grouping field changed and the cues must be rebuilt. */
         regroup?: boolean;
+        /** Language whose cues should be burned in; null for the original. */
+        captionLanguage?: string | null;
       };
       const patch: Record<string, unknown> = {};
       if (body.stylePreset && PRESETS[body.stylePreset]) patch.stylePreset = body.stylePreset;
@@ -125,6 +130,7 @@ export function localRouter(): Router {
       const groupingChanged =
         typeof body.smartGrouping === 'boolean' && body.smartGrouping !== project.smartGrouping;
       if (typeof body.smartGrouping === 'boolean') patch.smartGrouping = body.smartGrouping;
+      if (body.captionLanguage !== undefined) patch.captionLanguage = body.captionLanguage || null;
       // Switching preset discards prior overrides — otherwise the new preset arrives
       // wearing the old one's colours and the picker appears not to work.
       if (body.styleOverrides !== undefined) patch.styleOverrides = body.styleOverrides ?? {};
@@ -175,6 +181,68 @@ export function localRouter(): Router {
     asyncRoute(async (req, res) => {
       await deleteProject(req.params.id!);
       res.json({ ok: true });
+    }),
+  );
+
+  /**
+   * Translate the captions into another language, keeping every cue's timing.
+   *
+   * Runs inline rather than through the job queue: it is a handful of API calls with no
+   * ffmpeg work, and the caller wants the result before choosing to re-render.
+   */
+  router.post(
+    '/projects/:id/translate',
+    asyncRoute(async (req, res) => {
+      const project = await readProject(req.params.id!);
+      if (!project) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+      const target = String((req.body as { target?: string })?.target ?? '');
+      if (!findTarget(target)) {
+        res.status(400).json({ error: `Unsupported language: ${target}` });
+        return;
+      }
+
+      const source = await readCues(project.id);
+      if (source.length === 0) {
+        res.status(400).json({ error: 'Nothing to translate yet' });
+        return;
+      }
+
+      const style = applyOverrides(resolvePreset(project.stylePreset), project.styleOverrides);
+      const result = await translateCues(source, target, project.detectedLanguage ?? 'auto');
+
+      // Re-wrap to the current style's line limits: translated wording is a different
+      // length and the single line translateCues produces would otherwise overflow.
+      const wrapped = result.cues.map((c) => ({
+        ...c,
+        lines: wrapLines(
+          c.lines.join(' ').split(/\s+/).filter(Boolean),
+          style.maxCharsPerLine,
+          style.maxLines,
+        ),
+      }));
+
+      await writeCues(project.id, wrapped, target);
+      res.json({
+        ok: true,
+        target,
+        translated: result.translated,
+        failed: result.failed,
+        languages: await listCueLanguages(project.id),
+      });
+    }),
+  );
+
+  /** Languages available for this project, plus everything that can be requested. */
+  router.get(
+    '/projects/:id/languages',
+    asyncRoute(async (req, res) => {
+      res.json({
+        available: await listCueLanguages(req.params.id!),
+        targets: TRANSLATE_TARGETS,
+      });
     }),
   );
 

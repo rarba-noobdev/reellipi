@@ -55,6 +55,10 @@ export interface LocalProject {
    * the difference themselves.
    */
   renderedStyleKey: string | null;
+  /**
+   * Which language's cues get burned in. Null means the original transcription.
+   */
+  captionLanguage: string | null;
   durationSeconds: number | null;
   detectedLanguage: string | null;
   timingApproximate: boolean;
@@ -69,7 +73,16 @@ export interface LocalProject {
 
 const projectDir = (id: string) => path.join(DATA_DIR, id);
 const metaPath = (id: string) => path.join(projectDir(id), 'project.json');
-const cuesPath = (id: string) => path.join(projectDir(id), 'cues.json');
+
+/**
+ * Cue file for a language.
+ *
+ * The transcription language is the source of truth and lives in cues.json; each
+ * translation is a sibling file. Keeping them separate means switching caption language
+ * is instant and re-translating never destroys the original.
+ */
+const cuesPath = (id: string, lang?: string | null) =>
+  path.join(projectDir(id), lang ? `cues.${lang.replace(/[^\w-]/g, '')}.json` : 'cues.json');
 
 export async function ensureDataDir(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -96,6 +109,7 @@ export async function createProject(init: {
     timingOffsetMs: 0,
     smartGrouping: false,
     renderedStyleKey: null,
+    captionLanguage: null,
     durationSeconds: null,
     detectedLanguage: null,
     timingApproximate: true,
@@ -122,6 +136,7 @@ export async function readProject(id: string): Promise<LocalProject | null> {
       timingOffsetMs: raw.timingOffsetMs ?? 0,
       smartGrouping: raw.smartGrouping ?? false,
       renderedStyleKey: raw.renderedStyleKey ?? null,
+      captionLanguage: raw.captionLanguage ?? null,
     };
   } catch {
     return null;
@@ -148,13 +163,28 @@ export async function listProjects(): Promise<LocalProject[]> {
   return projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function writeCues(id: string, cues: Cue[]): Promise<void> {
-  await fs.writeFile(cuesPath(id), JSON.stringify(cues, null, 2));
+export async function writeCues(id: string, cues: Cue[], lang?: string | null): Promise<void> {
+  await fs.writeFile(cuesPath(id, lang), JSON.stringify(cues, null, 2));
 }
 
-export async function readCues(id: string): Promise<Cue[]> {
+export async function readCues(id: string, lang?: string | null): Promise<Cue[]> {
   try {
-    return JSON.parse(await fs.readFile(cuesPath(id), 'utf8')) as Cue[];
+    return JSON.parse(await fs.readFile(cuesPath(id, lang), 'utf8')) as Cue[];
+  } catch {
+    // A missing translation falls back to the source transcription rather than an empty
+    // video, which is the safer failure for a render already in progress.
+    if (lang) return readCues(id);
+    return [];
+  }
+}
+
+/** Language codes this project already has translated cues for. */
+export async function listCueLanguages(id: string): Promise<string[]> {
+  try {
+    const files = await fs.readdir(projectDir(id));
+    return files
+      .map((f) => /^cues\.([\w-]+)\.json$/.exec(f)?.[1])
+      .filter((x): x is string => Boolean(x));
   } catch {
     return [];
   }

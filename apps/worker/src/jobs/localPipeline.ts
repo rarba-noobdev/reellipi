@@ -139,7 +139,8 @@ async function processLocal(projectId: string, stage: LocalStage): Promise<void>
   const sourcePath = resolveProjectFile(projectId, project.sourceFile);
 
   try {
-    let cues = await readCues(projectId);
+    // Render whichever language the user selected; null means the transcription itself.
+    let cues = await readCues(projectId, project.captionLanguage);
     let detectedLanguage = project.detectedLanguage;
     let durationSeconds = project.durationSeconds;
     let igCaption = project.igCaption;
@@ -239,7 +240,7 @@ async function processLocal(projectId: string, stage: LocalStage): Promise<void>
       progress: 100,
       // Record exactly what was burned in, so the UI can tell when the download has
       // fallen behind the draft the user is looking at.
-      renderedStyleKey: styleKey(project),
+      renderedStyleKey: styleKey(project) + `|lang=${project.captionLanguage ?? 'src'}`,
       outputFile: path.basename(result.outputPath),
       durationSeconds: result.durationSeconds,
       error: null,

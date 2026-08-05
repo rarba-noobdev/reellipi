@@ -21,6 +21,7 @@ export interface LocalProject {
   smartGrouping: boolean;
   /** Fingerprint of the style that produced the current output file. */
   renderedStyleKey: string | null;
+  captionLanguage: string | null;
   durationSeconds: number | null;
   detectedLanguage: string | null;
   timingApproximate: boolean;
@@ -116,6 +117,7 @@ export function rerenderLocal(
     timingOffsetMs?: number;
     smartGrouping?: boolean;
     regroup?: boolean;
+    captionLanguage?: string | null;
   },
 ): Promise<{ ok: boolean; stage?: string }> {
   return json(`/local/projects/${id}/render`, {
@@ -135,6 +137,30 @@ export function saveLocalCues(id: string, cues: Cue[]): Promise<{ ok: boolean; c
 
 export function deleteLocalProject(id: string): Promise<{ ok: boolean }> {
   return json(`/local/projects/${id}`, { method: 'DELETE' });
+}
+
+export interface TranslateTarget {
+  code: string;
+  label: string;
+  native: string;
+  romanised?: boolean;
+}
+
+export function listLanguages(
+  id: string,
+): Promise<{ available: string[]; targets: TranslateTarget[] }> {
+  return json(`/local/projects/${id}/languages`);
+}
+
+export function translateProject(
+  id: string,
+  target: string,
+): Promise<{ ok: boolean; target: string; translated: number; failed: number; languages: string[] }> {
+  return json(`/local/projects/${id}/translate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target }),
+  });
 }
 
 export interface VideoPalette {

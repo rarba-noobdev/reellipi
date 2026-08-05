@@ -281,6 +281,49 @@ export const PRESETS: Record<string, CaptionStyle> = {
     maxWordsPerCue: 4,
     maxCharsPerLine: 24,
   },
+  one_word: {
+    ...BASE,
+    id: 'one_word',
+    label: 'One Word',
+    description: 'A single huge word at a time, centred',
+    fontFamily: 'Montserrat Black',
+    // Very large, because one short word has the whole frame width to itself.
+    fontSizePct: 8.5,
+    uppercase: true,
+    letterSpacing: -1,
+    textColor: '#FFFFFF',
+    accentColor: '#FFD400',
+    outlineWidthPct: 0.3,
+    shadowDepthPct: 0.22,
+    animation: 'bounce',
+    popScale: 116,
+    maxWordsPerCue: 1,
+    maxLines: 1,
+    maxCharsPerLine: 14,
+    // One word is read at a glance, so it needs less dwell than a phrase.
+    minDurationSec: 0.4,
+    positionY: 0.5,
+  },
+  two_line_bold: {
+    ...BASE,
+    id: 'two_line_bold',
+    label: 'Two-Line Bold',
+    description: 'Big stacked pair of lines, tight leading',
+    fontFamily: 'Montserrat Black',
+    fontSizePct: 6.2,
+    uppercase: false,
+    lineSpacing: 0.92,
+    letterSpacing: -0.5,
+    textColor: '#FFFFFF',
+    accentColor: '#FFD400',
+    outlineWidthPct: 0.26,
+    shadowDepthPct: 0.24,
+    animation: 'slide',
+    maxWordsPerCue: 4,
+    maxLines: 2,
+    maxCharsPerLine: 14,
+    positionY: 0.58,
+  },
   wavy: {
     ...BASE,
     id: 'wavy',
@@ -422,6 +465,30 @@ export function fontForLanguage(languageCode: string | null | undefined): string
 /** True when the text contains glyphs a Latin display face cannot render. */
 export function needsIndicFont(text: string): boolean {
   return /[ऀ-෿]/.test(text);
+}
+
+/**
+ * Pick a font from the SCRIPT OF THE TEXT rather than the language it was spoken in.
+ *
+ * Once captions can be translated the two diverge: a Tamil recording rendered in Hindi
+ * would otherwise be typeset in Noto Sans Tamil, which has no Devanagari and produces
+ * tofu. Unicode blocks are unambiguous here, so read them directly.
+ */
+const SCRIPT_FONTS: Array<[RegExp, string]> = [
+  [/[஀-௿]/, 'Noto Sans Tamil'],
+  [/[ऀ-ॿ]/, 'Noto Sans Devanagari'],
+  [/[ఀ-౿]/, 'Noto Sans Telugu'],
+  [/[ಀ-೿]/, 'Noto Sans Kannada'],
+  [/[ഀ-ൿ]/, 'Noto Sans Malayalam'],
+  [/[ঀ-৿]/, 'Noto Sans Bengali'],
+  [/[઀-૿]/, 'Noto Sans Gujarati'],
+  [/[਀-੿]/, 'Noto Sans Gurmukhi'],
+  [/[଀-୿]/, 'Noto Sans Oriya'],
+];
+
+export function fontForScript(text: string): string | null {
+  for (const [re, font] of SCRIPT_FONTS) if (re.test(text)) return font;
+  return null;
 }
 
 export function resolvePreset(id: string | null | undefined): CaptionStyle {

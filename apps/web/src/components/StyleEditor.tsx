@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Scrub } from './Scrub';
 import { ANIMATION_CHOICES } from '../lib/captionStyle';
 import type { BackgroundMode, CaptionStyle, FontChoice } from '../lib/captionStyle';
+import type { TranslateTarget } from '../lib/localApi';
 
 /**
  * Full caption style editor.
@@ -31,9 +32,17 @@ interface Props {
   palette?: string[];
   matchingPalette?: boolean;
   onMatchPalette: () => void;
+
+  /** Caption language: null means the original transcription. */
+  captionLanguage: string | null;
+  availableLanguages: string[];
+  translateTargets: TranslateTarget[];
+  translatingTo: string | null;
+  onSelectLanguage: (code: string | null) => void;
+  onTranslate: (code: string) => void;
 }
 
-type Section = 'preset' | 'type' | 'colour' | 'layout' | 'timing';
+type Section = 'preset' | 'type' | 'colour' | 'layout' | 'timing' | 'language';
 
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'preset', label: 'Style' },
@@ -41,6 +50,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'colour', label: 'Colour' },
   { id: 'layout', label: 'Layout' },
   { id: 'timing', label: 'Timing' },
+  { id: 'language', label: 'Language' },
 ];
 
 export function StyleEditor(props: Props) {
@@ -48,6 +58,8 @@ export function StyleEditor(props: Props) {
     style, presets, fonts, onChange, onSelectPreset, onApply, onReset, dirty, busy,
     timingOffsetMs, onTimingOffsetChange, smartGrouping, onSmartGroupingChange,
     palette, matchingPalette, onMatchPalette,
+    captionLanguage, availableLanguages, translateTargets, translatingTo,
+    onSelectLanguage, onTranslate,
   } = props;
   const [section, setSection] = useState<Section>('preset');
 
@@ -458,6 +470,68 @@ export function StyleEditor(props: Props) {
                 hint="Vertical travel of the curve, as a share of frame height."
               />
             )}
+          </>
+        )}
+
+        {section === 'language' && (
+          <>
+            <div className="rounded-[--radius-sm] bg-block-lilac px-2.5 py-2 text-[11px]">
+              Translations keep every caption's timing — only the words change, so the
+              highlight still lands on the speech.
+            </div>
+
+            <Field label="Burn these captions in">
+              <button
+                type="button"
+                onClick={() => onSelectLanguage(null)}
+                className={`mb-2 w-full rounded-[--radius-md] border p-2.5 text-left transition-colors ${
+                  captionLanguage === null
+                    ? 'border-ink bg-surface-soft'
+                    : 'border-hairline hover:border-ink/40'
+                }`}
+              >
+                <div className="text-sm font-medium">Original</div>
+                <div className="text-[10px] text-ink/45">As spoken, from the transcription</div>
+              </button>
+
+              <div className="space-y-1.5">
+                {translateTargets.map((t) => {
+                  const ready = availableLanguages.includes(t.code);
+                  const busyHere = translatingTo === t.code;
+                  return (
+                    <div
+                      key={t.code}
+                      className={`flex items-center gap-2 rounded-[--radius-md] border p-2 transition-colors ${
+                        captionLanguage === t.code ? 'border-ink bg-surface-soft' : 'border-hairline'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        disabled={!ready}
+                        onClick={() => onSelectLanguage(t.code)}
+                        className="min-w-0 flex-1 text-left disabled:opacity-45"
+                      >
+                        <div className="text-sm font-medium">{t.label}</div>
+                        <div className="truncate text-[10px] text-ink/45">{t.native}</div>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyHere}
+                        onClick={() => onTranslate(t.code)}
+                        className="shrink-0 rounded-[--radius-pill] border border-hairline px-2.5 py-1 text-[11px] transition-colors hover:border-ink disabled:opacity-45"
+                      >
+                        {busyHere ? '…' : ready ? 'Redo' : 'Translate'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Field>
+
+            <p className="text-[10px] text-ink/40">
+              Captions are translated cue by cue, so a short fragment can lose the sense of
+              the sentence around it. Check the transcript before publishing.
+            </p>
           </>
         )}
 

@@ -5,7 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getLocalProject,
   getPalette,
+  listLanguages,
   listPresets,
+  translateProject,
   localFileUrl,
   rerenderLocal,
   saveLocalCues,
@@ -80,6 +82,8 @@ export function LocalProjectPage() {
   const [previewMode, setPreviewMode] = useState<PreviewMode>('instagram');
   const [previewTime, setPreviewTime] = useState(0);
   const [draftSmart, setDraftSmart] = useState<boolean | null>(null);
+  /** undefined = not yet adopted from the project; null = the original transcription. */
+  const [draftLanguage, setDraftLanguage] = useState<string | null | undefined>(undefined);
 
   const q = useQuery({
     queryKey: ['localProject', id],
@@ -87,6 +91,19 @@ export function LocalProjectPage() {
     refetchInterval: (query) => (BUSY.includes(query.state.data?.project.status ?? '') ? 1200 : false),
   });
   const presets = useQuery({ queryKey: ['presets'], queryFn: listPresets });
+
+  const languages = useQuery({
+    queryKey: ['languages', id],
+    queryFn: () => listLanguages(id),
+  });
+
+  const translate = useMutation({
+    mutationFn: (target: string) => translateProject(id, target),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['languages', id] });
+      void qc.invalidateQueries({ queryKey: ['localProject', id] });
+    },
+  });
 
   // Sampling decodes frames, so only run it when the user asks.
   const palette = useQuery({
@@ -126,7 +143,8 @@ export function LocalProjectPage() {
   useEffect(() => {
     if (project && draftOffset === null) setDraftOffset(project.timingOffsetMs ?? 0);
     if (project && draftSmart === null) setDraftSmart(project.smartGrouping ?? false);
-  }, [project, draftOffset, draftSmart]);
+    if (project && draftLanguage === undefined) setDraftLanguage(project.captionLanguage ?? null);
+  }, [project, draftOffset, draftSmart, draftLanguage]);
 
   const rerender = useMutation({
     mutationFn: (body: {
@@ -135,6 +153,7 @@ export function LocalProjectPage() {
       timingOffsetMs?: number;
       smartGrouping?: boolean;
       regroup?: boolean;
+      captionLanguage?: string | null;
     }) => rerenderLocal(id, body),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['localProject', id] }),
   });
@@ -149,7 +168,14 @@ export function LocalProjectPage() {
 
   if (q.isLoading) return <p className="text-ink/50">Loading…</p>;
   if (q.error) return <p className="text-accent-magenta">{(q.error as Error).message}</p>;
-  if (!project || !savedStyle || !draftStyle || draftOffset === null || draftSmart === null) {
+  if (
+    !project ||
+    !savedStyle ||
+    !draftStyle ||
+    draftOffset === null ||
+    draftSmart === null ||
+    draftLanguage === undefined
+  ) {
     return <p className="text-ink/50">Loading…</p>;
   }
 
@@ -157,7 +183,8 @@ export function LocalProjectPage() {
   const dirty =
     JSON.stringify(draftStyle) !== JSON.stringify(savedStyle) ||
     draftOffset !== (project.timingOffsetMs ?? 0) ||
-    draftSmart !== (project.smartGrouping ?? false);
+    draftSmart !== (project.smartGrouping ?? false) ||
+    draftLanguage !== (project.captionLanguage ?? null);
 
   const basePreset =
     presets.data!.presets.find((p) => p.id === draftStyle.id) ?? presets.data!.presets[0]!;
@@ -167,7 +194,9 @@ export function LocalProjectPage() {
    * saved style was changed by a restyle that has not been re-rendered. Compare against
    * the fingerprint recorded when the file was actually produced.
    */
-  const currentKey = styleKeyOf(draftStyle, basePreset, draftOffset, draftSmart);
+  const currentKey =
+    styleKeyOf(draftStyle, basePreset, draftOffset, draftSmart) +
+    `|lang=${draftLanguage ?? 'src'}`;
   const exportStale =
     project.status === 'done' &&
     project.renderedStyleKey !== null &&
@@ -357,6 +386,12 @@ export function LocalProjectPage() {
           onTimingOffsetChange={setDraftOffset}
           smartGrouping={draftSmart}
           onSmartGroupingChange={setDraftSmart}
+          captionLanguage={draftLanguage}
+          availableLanguages={languages.data?.available ?? []}
+          translateTargets={languages.data?.targets ?? []}
+          translatingTo={translate.isPending ? translate.variables ?? null : null}
+          onSelectLanguage={setDraftLanguage}
+          onTranslate={(code) => translate.mutate(code)}
           palette={palette.data?.dominant}
           matchingPalette={palette.isFetching}
           onMatchPalette={() => {
@@ -394,6 +429,7 @@ export function LocalProjectPage() {
               timingOffsetMs: draftOffset,
               smartGrouping: draftSmart,
               regroup,
+              captionLanguage: draftLanguage,
             });
             setShowRendered(true);
           }}

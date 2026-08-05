@@ -1,6 +1,7 @@
 import type { Cue } from './subtitles.js';
 import {
   fontForLanguage,
+  fontForScript,
   needsIndicFont,
   resolveMetrics,
   type CaptionStyle,
@@ -130,10 +131,16 @@ export function buildAss(cues: Cue[], options: BuildAssOptions): string {
   const resY = options.playResY || PLAY_RES_Y;
   const m = resolveMetrics(style, resX, resY);
 
-  // If any cue carries Indic glyphs, a Latin display face would fall back mid-line and
-  // mix two designs. Swap the whole style to a matching Noto family instead.
-  const hasIndic = cues.some((c) => needsIndicFont(c.lines.join(' ')));
-  const fontName = hasIndic ? fontForLanguage(options.languageCode) : style.fontFamily;
+  /*
+   * If any cue carries Indic glyphs, a Latin display face would fall back mid-line and
+   * mix two designs. Choose the Noto family from the SCRIPT PRESENT IN THE TEXT, not
+   * from the spoken language: once captions can be translated those differ, and a Tamil
+   * recording rendered in Hindi would otherwise be typeset in a font with no Devanagari.
+   */
+  const allText = cues.map((c) => c.lines.join(' ')).join(' ');
+  const fontName = needsIndicFont(allText)
+    ? (fontForScript(allText) ?? fontForLanguage(options.languageCode))
+    : style.fontFamily;
 
   const fontSize = fitFontSize(cues, style, resX, m.fontSize, m.marginX, m.outlineWidth);
 
